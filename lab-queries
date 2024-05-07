@@ -1,0 +1,171 @@
+USE sakila;
+
+-- 1. How many copies of the film Hunchback Impossible exist in the inventory system?
+SELECT count(*) AS numb_copies 
+	FROM inventory
+		WHERE film_id 
+		IN (
+			SELECT film_id 
+				FROM film 
+					WHERE title = 'Hunchback Impossible'
+                    );
+
+-- 2. List all films whose length is longer than the average of all the films.
+
+SELECT * 
+	FROM film
+		HAVING length > (
+							SELECT AVG(length) 
+								FROM film
+                                
+						);
+
+-- 3. Use subqueries to display all actors who appear in the film Alone Trip.
+-- film.title
+-- film_actor.actor_id
+SELECT * FROM film_actor LIMIT 5; -- actor_id fa
+SELECT * FROM actor LIMIT 5; -- first_name, last_name a
+
+SELECT fa.actor_id, CONCAT(a.first_name,' ',a.last_name) AS full_name 
+	FROM film_actor fa
+		LEFT JOIN actor a ON a.actor_id = fa.actor_id
+			WHERE film_id 
+						IN (
+							SELECT film_id 
+								FROM film
+									WHERE title = 'Alone Trip'
+							);
+
+
+-- 4. Sales have been lagging among young families, and you wish to target all family movies for a promotion. Identify all movies categorized as family films.
+SELECT * FROM film LIMIT 5;
+SELECT DISTINCT category_id, name 
+	FROM category; -- NUMBER 8 IS FAMILY
+
+
+SELECT  * 
+	FROM film
+		WHERE film_id IN (
+							SELECT film_id FROM film_category
+								WHERE category_id = 8
+                                );
+
+-- 5. 
+SELECT CONCAT(c.first_name, ' ', c.last_name) AS client_full_name
+	FROM customer c
+		WHERE address_id in 
+							(SELECT address_id 
+									FROM address WHERE
+										city_id IN 
+											(SELECT city_id FROM city
+												WHERE country_id IN
+                                                	(SELECT country_id 
+														FROM country
+															WHERE country ='Canada'
+													)
+											)
+								);
+
+-- 5. Get name and email from customers from Canada using subqueries. Do the same with joins. Note that to create a join, you will have to identify the correct tables with their primary keys and foreign keys, that will help you get the relevant information.
+SELECT * FROM customer LIMIT 5;
+SELECT * FROM address LIMIT 5; -- city_id
+SELECT * FROM city LIMIT 5; -- country_id
+SELECT DISTINCT(country) FROM country; -- 'Canada'
+
+SELECT CONCAT(c.first_name, ' ', c.last_name) AS client_full_name,c.email, c.customer_id
+	FROM customer c
+		WHERE address_id in 
+							(SELECT address_id 
+									FROM address WHERE
+										city_id IN 
+											(SELECT city_id FROM city
+												WHERE country_id IN
+                                                	(SELECT country_id 
+														FROM country
+															WHERE country ='Canada'
+													)
+											)
+								);
+                                        
+                                        
+                                        
+                                        
+SELECT c.customer_id, CONCAT(c.first_name, ' ', c.last_name) AS client_full_name, c.email 
+	FROM customer c
+		LEFT JOIN address ad 
+			ON ad.address_id = c.address_id
+				LEFT JOIN city ct 
+					ON ct.city_id = ad.city_id
+			WHERE  ct.country_id IN (
+										SELECT country_id 
+											FROM country 
+												WHERE country = 'Canada');
+
+
+
+ 6. Which are films starred by the most prolific actor? Most prolific actor is defined as the actor that has acted in the most number of films. First you will have to find the most prolific actor and then use that actor_id to find the different films that he/she starred.
+
+-- defined the most prolific actor > 107
+
+ SELECT actor_id
+       FROM film_actor
+			GROUP BY actor_id
+				HAVING count(*) = (
+									SELECT max(count)
+										FROM (
+												SELECT count(*) AS count
+													FROM film_actor
+														GROUP BY actor_id
+												);
+
+
+SELECT title FROM film
+	WHERE film_id IN (
+		SELECT film_id FROM film_actor
+			WHERE actor_id IN (
+				SELECT actor_id
+					FROM film_actor
+						GROUP BY actor_id
+							HAVING count(*) = (
+								SELECT max(count)
+										FROM (
+												SELECT count(*) AS count
+													FROM film_actor
+															GROUP BY actor_id
+											) AS subquery
+												)
+										)
+						);
+
+
+-- 7. Films rented by most profitable customer. You can use the customer table and payment table to find the most profitable customer ie the customer that has made the largest sum of payments
+
+
+SELECT title FROM rental r
+	LEFT JOIN inventory i ON i.inventory_id = r.inventory_id
+		LEFT JOIN film f ON f.film_id = i.inventory_id
+			WHERE title IS NOT NULL && customer_id IN (
+				SELECT customer_id
+					FROM payment
+						GROUP BY customer_id
+							HAVING sum(amount) = (
+													SELECT max(total_amount)
+														FROM (
+															SELECT customer_id, sum(amount) AS total_amount
+																FROM payment
+																	GROUP BY customer_id
+															) AS subquery
+												)
+						);
+
+-- 8. Get the client_id and the total_amount_spent of those clients who spent more than the average of the total_amount spent by each client.
+
+SELECT customer_id, sum(amount) AS total_amount_spent FROM payment
+	GROUP BY customer_id
+			HAVING sum(amount) > (
+				SELECT AVG(total_amount) AS avg_total_amount 
+					FROM (
+							SELECT customer_id, sum(amount) AS total_amount
+								FROM payment
+									GROUP BY customer_id) AS subquery);
+
